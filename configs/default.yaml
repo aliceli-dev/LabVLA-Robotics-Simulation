@@ -1,0 +1,19 @@
+instruction: "Move the red test tube to rack B"
+vlm_backend: mock
+controller: scripted
+world_model:
+  state_dim: 8
+  action_dim: 4
+  hidden_dim: 64
+env:
+  robot: panda
+  objects:
+    - red_tube
+    - blue_tube
+  racks:
+    - rack_a
+    - rack_b
+demo:
+  seed: 0
+  save_trajectory: true
+  output_dir: outputs
