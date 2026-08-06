@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,8 @@ from labvla.controller import ScriptedController
 from labvla.env import LabEnv
 from labvla.vlm import TaskPlan, build_vlm
 from labvla.world_model import LightweightWorldModel
+
+FrameCallback = Callable[[np.ndarray], None]
 
 
 @dataclass
@@ -28,7 +31,10 @@ def load_config(path: str | Path) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def run_pipeline(config: dict[str, Any]) -> PipelineResult:
+def run_pipeline(
+    config: dict[str, Any],
+    on_frame: FrameCallback | None = None,
+) -> PipelineResult:
     env_cfg = config.get("env", {})
     wm_cfg = config.get("world_model", {})
     demo_cfg = config.get("demo", {})
@@ -45,7 +51,10 @@ def run_pipeline(config: dict[str, Any]) -> PipelineResult:
     vlm = build_vlm(str(config.get("vlm_backend", "mock")))
     plan = vlm.plan(instruction, obs.image)
 
-    controller = ScriptedController(steps_per_segment=int(demo_cfg.get("steps_per_segment", 8)))
+    controller = ScriptedController(
+        steps_per_segment=int(demo_cfg.get("steps_per_segment", 8)),
+        on_frame=on_frame,
+    )
     result = controller.execute(env, plan, instruction=instruction)
     frames = list(result.info.get("frames", []))
 

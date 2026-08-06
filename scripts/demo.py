@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
 
 from labvla.pipeline import load_config, run_pipeline
 from labvla.viz import save_gif
+from labvla.viz.live import LiveViewer
 
 
 def main() -> None:
@@ -22,13 +23,24 @@ def main() -> None:
     )
     parser.add_argument(
         "--gif",
-        type=str,
-        default=str(ROOT / "assets" / "demo.gif"),
+        nargs="?",
+        const=str(ROOT / "assets" / "demo.gif"),
+        default=None,
+        help="Also export a GIF (default path: assets/demo.gif)",
+    )
+    parser.add_argument(
+        "--fps",
+        type=float,
+        default=12.0,
+        help="Live playback frame rate (default: 12)",
     )
     args = parser.parse_args()
 
     config = load_config(args.config)
-    result = run_pipeline(config)
+
+    viewer = LiveViewer(fps=args.fps)
+    print("Live window open — watching pick-and-place...")
+    result = run_pipeline(config, on_frame=viewer.show)
 
     payload = {
         "instruction": result.instruction,
@@ -59,9 +71,12 @@ def main() -> None:
             )
         print(f"saved: {out_path}")
 
-    if result.frames:
+    if args.gif and result.frames:
         gif_path = save_gif(result.frames, args.gif, duration_ms=70)
         print(f"saved: {gif_path}")
+
+    print("Close the window to exit.")
+    viewer.close()
 
 
 if __name__ == "__main__":

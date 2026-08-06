@@ -62,11 +62,27 @@ Built to run on a Mac without an NVIDIA GPU.
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
+```
+
+### Run live locally
+
+From the project root, with the venv activated, we can run codes to iniitaite live demo locally using following command without parameters.
+
+```bash
 python scripts/demo.py
 ```
 
-This writes `assets/demo.gif` and prints the VLM plan JSON. The mock demo needs only NumPy, PyYAML, and Pillow. MuJoCo / robosuite come in the next stage.
+This is the default mode. A matplotlib window opens and you watch the mock Franka Panda pick-and-place in real time (instruction → VLM plan → scripted controller). Close the window when the run finishes to exit.
+
+Optional flags:
+
+| Flag | Effect |
+|---|---|
+| `--gif` | Also write `assets/demo.gif` after the live run |
+| `--gif path/to/out.gif` | Write the GIF to a custom path |
+| `--fps 10` | Change live playback speed (default: 12) |
+| `--config path/to.yaml` | Use a different config |
 
 ## Status
 
-Runnable mock pipeline with visual demo GIF: mock lab scene, mock VLM, scripted controller, and world-model module. Next: real robosuite scene, then optional API / local VLM backends.
+Runnable mock pipeline with live window (and optional GIF): mock lab scene, mock VLM, scripted controller, and world-model module. Next: real robosuite scene, then optional API / local VLM backends.
