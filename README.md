@@ -6,6 +6,10 @@ For an example, we give a natural-language instruction like **"Move the red test
 
 This is a Mac-friendly prototype of a VLM → controller → world model pipeline for lab automation. It is not a full end-to-end production VLA yet. The VLM plans; a controller executes. A true VLA action head is a later extension.
 
+### Demo
+
+![LabVLA Robotics Simulation Demo](assets/demo.gif)
+
 ## Pipeline
 
 ```text
@@ -32,7 +36,9 @@ labvla/
   vlm/            vision-language planning backends
   controller/     robot control
   world_model/    next-state prediction
+  viz/            demo frame rendering and GIF export
   pipeline.py     end-to-end wiring
+assets/           demo.gif
 configs/          default demo config
 scripts/demo.py   runnable mock demo
 ```
@@ -59,8 +65,8 @@ pip install -e .
 python scripts/demo.py
 ```
 
-The mock demo needs only NumPy and PyYAML. It runs the full software pipeline with a placeholder lab environment and a rule-based VLM. MuJoCo / robosuite come in the next stage.
+This writes `assets/demo.gif` and prints the VLM plan JSON. The mock demo needs only NumPy, PyYAML, and Pillow. MuJoCo / robosuite come in the next stage.
 
 ## Status
 
-Skeleton is in place: mock environment, mock VLM, scripted controller, and world-model module. Next: real robosuite scene, reliable pick-and-place, then optional API / local VLM backends.
+Runnable mock pipeline with visual demo GIF: mock lab scene, mock VLM, scripted controller, and world-model module. Next: real robosuite scene, then optional API / local VLM backends.

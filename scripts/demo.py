@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from labvla.pipeline import load_config, run_pipeline
+from labvla.viz import save_gif
 
 
 def main() -> None:
@@ -18,6 +19,11 @@ def main() -> None:
         "--config",
         type=str,
         default=str(ROOT / "configs" / "default.yaml"),
+    )
+    parser.add_argument(
+        "--gif",
+        type=str,
+        default=str(ROOT / "assets" / "demo.gif"),
     )
     args = parser.parse_args()
 
@@ -29,6 +35,7 @@ def main() -> None:
         "plan": result.plan.to_dict(),
         "success": result.success,
         "num_steps": len(result.trajectory),
+        "num_frames": len(result.frames),
         "predicted_next_state": result.predicted_next_state,
     }
     print(json.dumps(payload, indent=2))
@@ -51,6 +58,10 @@ def main() -> None:
                 indent=2,
             )
         print(f"saved: {out_path}")
+
+    if result.frames:
+        gif_path = save_gif(result.frames, args.gif, duration_ms=70)
+        print(f"saved: {gif_path}")
 
 
 if __name__ == "__main__":

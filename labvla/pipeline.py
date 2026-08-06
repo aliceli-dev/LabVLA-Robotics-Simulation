@@ -20,6 +20,7 @@ class PipelineResult:
     success: bool
     trajectory: list[dict[str, Any]]
     predicted_next_state: list[float] | None
+    frames: list[np.ndarray]
 
 
 def load_config(path: str | Path) -> dict[str, Any]:
@@ -44,16 +45,17 @@ def run_pipeline(config: dict[str, Any]) -> PipelineResult:
     vlm = build_vlm(str(config.get("vlm_backend", "mock")))
     plan = vlm.plan(instruction, obs.image)
 
-    controller = ScriptedController()
-    result = controller.execute(env, plan)
+    controller = ScriptedController(steps_per_segment=int(demo_cfg.get("steps_per_segment", 8)))
+    result = controller.execute(env, plan, instruction=instruction)
+    frames = list(result.info.get("frames", []))
 
     object_order = ["red_tube", "blue_tube"]
     trajectory: list[dict[str, Any]] = []
     for i, action in enumerate(result.actions):
-        state_vec = result.observations[i].state.to_vector(object_order)
-        next_state_vec = result.observations[min(i + 1, len(result.observations) - 1)].state.to_vector(
-            object_order
-        )
+        idx = min(i, len(result.observations) - 1)
+        next_idx = min(i + 1, len(result.observations) - 1)
+        state_vec = result.observations[idx].state.to_vector(object_order)
+        next_state_vec = result.observations[next_idx].state.to_vector(object_order)
         trajectory.append(
             {
                 "state": state_vec.tolist(),
@@ -81,4 +83,5 @@ def run_pipeline(config: dict[str, Any]) -> PipelineResult:
         success=result.success,
         trajectory=trajectory,
         predicted_next_state=predicted,
+        frames=frames,
     )
