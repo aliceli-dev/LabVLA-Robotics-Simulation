@@ -86,3 +86,5 @@ Optional flags:
 ## Status
 
 Runnable mock pipeline with live window (and optional GIF): mock lab scene, mock VLM, scripted controller, and world-model module. Next: real robosuite scene, then optional API / local VLM backends.
+
+![LabVLA Robotics Simulation](assets/LabVLA_Robotics_Simulation_2.png)
