@@ -20,6 +20,8 @@ FrameCallback = Callable[[np.ndarray], None]
 class PipelineResult:
     instruction: str
     plan: TaskPlan
+    instructions: list[str]
+    plans: list[TaskPlan]
     success: bool
     trajectory: list[dict[str, Any]]
     predicted_next_state: list[float] | None
@@ -29,6 +31,13 @@ class PipelineResult:
 def load_config(path: str | Path) -> dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def _load_instructions(config: dict[str, Any]) -> list[str]:
+    raw = config.get("instructions")
+    if isinstance(raw, list) and raw:
+        return [str(item) for item in raw]
+    return [str(config.get("instruction", "Move the red test tube to rack B"))]
 
 
 def run_pipeline(
@@ -47,31 +56,40 @@ def run_pipeline(
     )
     obs = env.reset()
 
-    instruction = str(config.get("instruction", "Move the red test tube to rack B"))
+    instructions = _load_instructions(config)
     vlm = build_vlm(str(config.get("vlm_backend", "mock")))
-    plan = vlm.plan(instruction, obs.image)
-
     controller = ScriptedController(
         steps_per_segment=int(demo_cfg.get("steps_per_segment", 8)),
         on_frame=on_frame,
     )
-    result = controller.execute(env, plan, instruction=instruction)
-    frames = list(result.info.get("frames", []))
 
+    plans: list[TaskPlan] = []
+    frames: list[np.ndarray] = []
     object_order = ["red_tube", "blue_tube"]
     trajectory: list[dict[str, Any]] = []
-    for i, action in enumerate(result.actions):
-        idx = min(i, len(result.observations) - 1)
-        next_idx = min(i + 1, len(result.observations) - 1)
-        state_vec = result.observations[idx].state.to_vector(object_order)
-        next_state_vec = result.observations[next_idx].state.to_vector(object_order)
-        trajectory.append(
-            {
-                "state": state_vec.tolist(),
-                "action": np.asarray(action, dtype=np.float32).tolist(),
-                "next_state": next_state_vec.tolist(),
-            }
-        )
+    all_success = True
+
+    for instruction in instructions:
+        plan = vlm.plan(instruction, obs.image)
+        plans.append(plan)
+        result = controller.execute(env, plan, instruction=instruction)
+        frames.extend(result.info.get("frames", []))
+        all_success = all_success and bool(result.success)
+        obs = result.observations[-1] if result.observations else obs
+
+        for i, action in enumerate(result.actions):
+            idx = min(i, len(result.observations) - 1)
+            next_idx = min(i + 1, len(result.observations) - 1)
+            state_vec = result.observations[idx].state.to_vector(object_order)
+            next_state_vec = result.observations[next_idx].state.to_vector(object_order)
+            trajectory.append(
+                {
+                    "state": state_vec.tolist(),
+                    "action": np.asarray(action, dtype=np.float32).tolist(),
+                    "next_state": next_state_vec.tolist(),
+                    "instruction": instruction,
+                }
+            )
 
     predicted: list[float] | None = None
     if trajectory:
@@ -87,9 +105,11 @@ def run_pipeline(
         predicted = pred.reshape(-1).tolist()
 
     return PipelineResult(
-        instruction=instruction,
-        plan=plan,
-        success=result.success,
+        instruction=" → ".join(instructions),
+        plan=plans[-1],
+        instructions=instructions,
+        plans=plans,
+        success=all_success,
         trajectory=trajectory,
         predicted_next_state=predicted,
         frames=frames,

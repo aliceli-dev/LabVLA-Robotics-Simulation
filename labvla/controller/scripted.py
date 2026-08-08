@@ -71,6 +71,7 @@ class ScriptedController(Controller):
             self._push_frame(frames, env, instruction, plan)
 
     def execute(self, env: LabEnv, plan: TaskPlan, instruction: str = "") -> ControlResult:
+        env.state.success = False
         obs0 = env._observe()
         object_pos = env.state.object_positions[plan.object].copy()
         dest_pos = env.state.object_positions[plan.destination].copy()

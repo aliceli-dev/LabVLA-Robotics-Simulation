@@ -43,8 +43,8 @@ def main() -> None:
     result = run_pipeline(config, on_frame=viewer.show)
 
     payload = {
-        "instruction": result.instruction,
-        "plan": result.plan.to_dict(),
+        "instructions": result.instructions,
+        "plans": [plan.to_dict() for plan in result.plans],
         "success": result.success,
         "num_steps": len(result.trajectory),
         "num_frames": len(result.frames),
@@ -60,8 +60,8 @@ def main() -> None:
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(
                 {
-                    "instruction": result.instruction,
-                    "plan": result.plan.to_dict(),
+                    "instructions": result.instructions,
+                    "plans": [plan.to_dict() for plan in result.plans],
                     "success": result.success,
                     "trajectory": result.trajectory,
                     "predicted_next_state": result.predicted_next_state,
@@ -70,7 +70,6 @@ def main() -> None:
                 indent=2,
             )
         print(f"saved: {out_path}")
-
     if args.gif and result.frames:
         gif_path = save_gif(result.frames, args.gif, duration_ms=70)
         print(f"saved: {gif_path}")
