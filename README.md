@@ -4,6 +4,8 @@ This is a Python project for language-guided laboratory robotics in simulation.
 
 For an example, we give a natural-language instruction like **"Move the red test tube to rack B"**. The system looks at the simulated lab table through a camera, turns the instruction into a structured task plan with a Vision-Language Model (VLM), and a virtual Franka Panda arm runs pick-and-place. A lightweight world model then predicts the next low-dimensional state.
 
+When you run `python scripts/demo.py`, the arm first tries to place the red tube on Rack B but misses and shows `FAILED`. It then retries, picks the tube back up, and places it correctly on Rack B. Finally, it moves the blue tube to Rack A in one successful attempt.
+
 This is a Mac-friendly prototype of a VLM → controller → world model pipeline for lab automation. It is not a full end-to-end production VLA yet. The VLM plans; a controller executes. A true VLA action head is a later extension.
 
 ### Demo

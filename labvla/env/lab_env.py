@@ -80,6 +80,7 @@ class LabEnv:
         height: int = 400,
         instruction: str | None = None,
         plan_text: str | None = None,
+        status: str | None = None,
     ) -> np.ndarray:
         img = Image.new("RGB", (width, height), (246, 244, 239))
         draw = ImageDraw.Draw(img)
@@ -202,9 +203,15 @@ class LabEnv:
         draw.rectangle([0, 0, width, header_h], fill=(28, 36, 48))
         if width >= 200:
             draw.text((max(4, int(16 * sx)), max(2, int(10 * sy))), "LabVLA Robotics Simulation", fill=(245, 245, 245), font=font_lg)
-            status = "SUCCESS" if self._state.success else "RUNNING"
-            status_color = (96, 210, 140) if self._state.success else (240, 190, 90)
-            draw.text((width - max(50, int(110 * sx)), max(2, int(14 * sy))), status, fill=status_color, font=font)
+            label = status or ("SUCCESS" if self._state.success else "RUNNING")
+            status_colors = {
+                "SUCCESS": (96, 210, 140),
+                "RUNNING": (240, 190, 90),
+                "FAILED": (230, 90, 90),
+                "RETRY": (255, 170, 70),
+            }
+            status_color = status_colors.get(label, (240, 190, 90))
+            draw.text((width - max(50, int(110 * sx)), max(2, int(14 * sy))), label, fill=status_color, font=font)
             if instruction:
                 draw.text((max(4, int(16 * sx)), max(10, int(34 * sy))), f"Instruction: {instruction}", fill=(190, 205, 220), font=font_sm)
         if plan_text and height >= 160:
@@ -255,6 +262,27 @@ class LabEnv:
         self._state.gripper_open = 1.0
         self._state.held_object = None
         self._state.success = True
+        return self._observe()
+
+    def apply_miss(
+        self,
+        object_name: str,
+        destination: str,
+        offset: tuple[float, float, float] = (0.07, 0.05, 0.02),
+    ) -> LabObservation:
+        """Drop the object near the destination (failed placement)."""
+        if object_name not in self._state.object_positions:
+            raise KeyError(object_name)
+        if destination not in self._state.object_positions:
+            raise KeyError(destination)
+        target = self._state.object_positions[destination].copy()
+        target = target + np.asarray(offset, dtype=np.float32)
+        target[2] = 0.02
+        self._state.object_positions[object_name] = target
+        self._state.ee_position = target + np.array([0.0, 0.0, 0.12], dtype=np.float32)
+        self._state.gripper_open = 1.0
+        self._state.held_object = None
+        self._state.success = False
         return self._observe()
 
     @property

@@ -45,6 +45,7 @@ def main() -> None:
     payload = {
         "instructions": result.instructions,
         "plans": [plan.to_dict() for plan in result.plans],
+        "attempts": [a.to_dict() for a in result.attempts],
         "success": result.success,
         "num_steps": len(result.trajectory),
         "num_frames": len(result.frames),
@@ -62,6 +63,7 @@ def main() -> None:
                 {
                     "instructions": result.instructions,
                     "plans": [plan.to_dict() for plan in result.plans],
+                    "attempts": [a.to_dict() for a in result.attempts],
                     "success": result.success,
                     "trajectory": result.trajectory,
                     "predicted_next_state": result.predicted_next_state,

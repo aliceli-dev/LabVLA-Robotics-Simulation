@@ -8,6 +8,7 @@ from labvla.env import LabEnv
 from labvla.vlm import TaskPlan
 
 from .base import ControlResult, Controller
+from .errors import ControlExecutionError
 
 FrameCallback = Callable[[np.ndarray], None]
 
@@ -27,13 +28,20 @@ class ScriptedController(Controller):
         self.on_frame = on_frame
         self.render_size = render_size
 
-    def _render(self, env: LabEnv, instruction: str, plan: TaskPlan) -> np.ndarray:
+    def _render(
+        self,
+        env: LabEnv,
+        instruction: str,
+        plan: TaskPlan,
+        status: str | None = None,
+    ) -> np.ndarray:
         width, height = self.render_size
         return env.render_rgb(
             width=width,
             height=height,
             instruction=instruction,
             plan_text=f'VLM plan: {{"object": "{plan.object}", "destination": "{plan.destination}"}}',
+            status=status,
         )
 
     def _push_frame(
@@ -42,11 +50,24 @@ class ScriptedController(Controller):
         env: LabEnv,
         instruction: str,
         plan: TaskPlan,
+        status: str | None = None,
     ) -> None:
-        frame = self._render(env, instruction, plan)
+        frame = self._render(env, instruction, plan, status=status)
         frames.append(frame)
         if self.on_frame is not None:
             self.on_frame(frame)
+
+    def _hold(
+        self,
+        frames: list[np.ndarray],
+        env: LabEnv,
+        instruction: str,
+        plan: TaskPlan,
+        n: int = 6,
+        status: str | None = None,
+    ) -> None:
+        for _ in range(n):
+            self._push_frame(frames, env, instruction, plan, status=status)
 
     def _move_to(
         self,
@@ -58,6 +79,7 @@ class ScriptedController(Controller):
         frames: list[np.ndarray],
         instruction: str,
         plan: TaskPlan,
+        status: str | None = None,
     ) -> None:
         start = env.state.ee_position.copy()
         for i in range(1, self.steps_per_segment + 1):
@@ -68,9 +90,17 @@ class ScriptedController(Controller):
             obs = env.set_ee(pose, gripper_open=gripper_open)
             actions.append(action)
             observations.append(obs)
-            self._push_frame(frames, env, instruction, plan)
+            self._push_frame(frames, env, instruction, plan, status=status)
 
-    def execute(self, env: LabEnv, plan: TaskPlan, instruction: str = "") -> ControlResult:
+    def execute(
+        self,
+        env: LabEnv,
+        plan: TaskPlan,
+        instruction: str = "",
+        *,
+        force_fail: bool = False,
+        attempt: int = 1,
+    ) -> ControlResult:
         env.state.success = False
         obs0 = env._observe()
         object_pos = env.state.object_positions[plan.object].copy()
@@ -86,24 +116,61 @@ class ScriptedController(Controller):
         actions: list[np.ndarray] = []
         observations = [obs0]
         frames: list[np.ndarray] = []
-        self._push_frame(frames, env, instruction, plan)
+        run_status = "RETRY" if attempt > 1 else None
+        attempt_label = f"{instruction}  (attempt {attempt})"
 
-        self._move_to(env, above_obj, 1.0, actions, observations, frames, instruction, plan)
-        self._move_to(env, grasp_pose, 1.0, actions, observations, frames, instruction, plan)
+        self._push_frame(frames, env, attempt_label, plan, status=run_status)
+        self._move_to(
+            env, above_obj, 1.0, actions, observations, frames, attempt_label, plan, status=run_status
+        )
+        self._move_to(
+            env, grasp_pose, 1.0, actions, observations, frames, attempt_label, plan, status=run_status
+        )
         env.grasp(plan.object)
-        self._push_frame(frames, env, instruction, plan)
-        self._move_to(env, lift_pose, 0.0, actions, observations, frames, instruction, plan)
-        self._move_to(env, above_dest, 0.0, actions, observations, frames, instruction, plan)
-        self._move_to(env, place_pose, 0.0, actions, observations, frames, instruction, plan)
+        self._push_frame(frames, env, attempt_label, plan, status=run_status)
+        self._move_to(
+            env, lift_pose, 0.0, actions, observations, frames, attempt_label, plan, status=run_status
+        )
+        self._move_to(
+            env, above_dest, 0.0, actions, observations, frames, attempt_label, plan, status=run_status
+        )
+
+        if force_fail:
+            miss_pose = place_pose + np.array([0.07, 0.05, 0.0], dtype=np.float32)
+            self._move_to(
+                env, miss_pose, 0.0, actions, observations, frames, attempt_label, plan, status="FAILED"
+            )
+            final_obs = env.apply_miss(plan.object, plan.destination)
+            observations.append(final_obs)
+            self._push_frame(frames, env, attempt_label, plan, status="FAILED")
+            self._move_to(
+                env, retreat, 1.0, actions, observations, frames, attempt_label, plan, status="FAILED"
+            )
+            self._hold(frames, env, attempt_label, plan, n=8, status="FAILED")
+            raise ControlExecutionError(
+                f"Placement missed for {plan.object} → {plan.destination}",
+                attempt=attempt,
+                actions=actions,
+                observations=observations,
+                frames=frames,
+                info={
+                    "object": plan.object,
+                    "destination": plan.destination,
+                    "attempt": attempt,
+                    "reason": "placement_miss",
+                },
+            )
+
+        self._move_to(
+            env, place_pose, 0.0, actions, observations, frames, attempt_label, plan, status=run_status
+        )
         final_obs = env.apply_placement(plan.object, plan.destination)
         observations.append(final_obs)
-        self._push_frame(frames, env, instruction, plan)
-        self._move_to(env, retreat, 1.0, actions, observations, frames, instruction, plan)
-        for _ in range(6):
-            frame = frames[-1]
-            frames.append(frame)
-            if self.on_frame is not None:
-                self.on_frame(frame)
+        self._push_frame(frames, env, attempt_label, plan, status="SUCCESS")
+        self._move_to(
+            env, retreat, 1.0, actions, observations, frames, attempt_label, plan, status="SUCCESS"
+        )
+        self._hold(frames, env, attempt_label, plan, n=6, status="SUCCESS")
 
         return ControlResult(
             success=final_obs.state.success,
@@ -113,5 +180,6 @@ class ScriptedController(Controller):
                 "object": plan.object,
                 "destination": plan.destination,
                 "frames": frames,
+                "attempt": attempt,
             },
         )
