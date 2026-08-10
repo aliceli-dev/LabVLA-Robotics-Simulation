@@ -55,6 +55,7 @@ class LabEnv:
             "blue_tube": np.array([0.18, -0.12, 0.02], dtype=np.float32),
             "rack_a": np.array([-0.22, 0.12, 0.00], dtype=np.float32),
             "rack_b": np.array([-0.22, -0.12, 0.00], dtype=np.float32),
+            "staging": np.array([0.18, 0.0, 0.00], dtype=np.float32),
         }
         return LabState(
             object_positions=positions,
@@ -209,6 +210,7 @@ class LabEnv:
                 "RUNNING": (240, 190, 90),
                 "FAILED": (230, 90, 90),
                 "RETRY": (255, 170, 70),
+                "BLOCKED": (220, 120, 80),
             }
             status_color = status_colors.get(label, (240, 190, 90))
             draw.text((width - max(50, int(110 * sx)), max(2, int(14 * sy))), label, fill=status_color, font=font)
