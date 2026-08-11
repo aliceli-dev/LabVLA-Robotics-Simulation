@@ -10,6 +10,7 @@ In my code, when running `python scripts/demo.py`:
 3. Next it moves the blue tube to Rack A
 4. Finally it attempts to move the red tube onto Rack A, but a safety check blocks the action because the rack is occupied
 5. After clearing the blue tube to staging, it places the red tube successfully.
+6. Unit tests have been added in /tests folder
 
 This is a Mac-friendly prototype of a VLM → controller → world model pipeline for lab automation. It is not a full end-to-end production VLA yet. The VLM plans; a controller executes. A true VLA action head is a later extension.
 
