@@ -16,6 +16,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
 sim = [
   "mujoco>=3.0",
   "robosuite>=1.4",
@@ -27,3 +30,7 @@ torch = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["labvla*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -68,7 +68,13 @@ Built to run on a Mac without an NVIDIA GPU.
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install -e ".[dev]"
+```
+
+### Run tests
+
+```bash
+pytest
 ```
 
 ### Run live locally
